@@ -412,7 +412,7 @@ footer{background:var(--ink);border-top:1px solid var(--bd);padding:3.5rem 0 2re
       <a href="#collab">合作</a>
     </div>
     <div class="nav-actions">
-      <a href="admin.html" class="nav-admin">⚙ 後台管理</a>
+      <a href="admin-cms.html" class="nav-admin">⚙ 後台管理</a>
       <button class="nav-sub" onclick="openModal()">訂閱週報</button>
     </div>
     <button class="hamburger" onclick="toggleMob()"><span></span><span></span><span></span></button>
@@ -423,7 +423,7 @@ footer{background:var(--ink);border-top:1px solid var(--bd);padding:3.5rem 0 2re
   <a href="#tools" onclick="toggleMob()">工具</a>
   <a href="#destinations" onclick="toggleMob()">地區</a>
   <a href="#about" onclick="toggleMob()">關於我</a>
-  <a href="admin.html">⚙ 後台管理</a>
+  <a href="admin-cms.html">⚙ 後台管理</a>
   <button class="sub-inline-btn" style="margin-top:.5rem" onclick="openModal();toggleMob()">訂閱週報</button>
 </div>
 
@@ -748,7 +748,7 @@ footer{background:var(--ink);border-top:1px solid var(--bd);padding:3.5rem 0 2re
       </div>
       <div class="footer-col"><h4>台灣旅遊</h4><ul><li><a href="#">台北</a></li><li><a href="#">台南</a></li><li><a href="#">花蓮</a></li><li><a href="#">宜蘭</a></li></ul></div>
       <div class="footer-col"><h4>海外旅遊</h4><ul><li><a href="#">日本</a></li><li><a href="#">韓國</a></li><li><a href="#">泰國</a></li><li><a href="#">更多</a></li></ul></div>
-      <div class="footer-col"><h4>關於</h4><ul><li><a href="#">關於我</a></li><li><a href="admin.html">後台管理</a></li><li><a href="#">合作邀約</a></li><li><a href="#">隱私政策</a></li></ul></div>
+      <div class="footer-col"><h4>關於</h4><ul><li><a href="#">關於我</a></li><li><a href="admin-cms.html">後台管理</a></li><li><a href="#">合作邀約</a></li><li><a href="#">隱私政策</a></li></ul></div>
     </div>
     <div class="footer-bottom">
       <p>© 2026 旅食日記 · 保留所有權利</p>
@@ -869,7 +869,7 @@ function renderArticles() {
   }
 
   if (allPosts.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-title">還沒有文章</div><div class="empty-state-desc">到後台發布你的第一篇旅遊文章，就會顯示在這裡。</div><a href="admin.html" class="btn btn-fill">前往後台發文 →</a></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-title">還沒有文章</div><div class="empty-state-desc">到後台發布你的第一篇旅遊文章，就會顯示在這裡。</div><a href="admin-cms.html" class="btn btn-fill">前往後台發文 →</a></div>`;
     return;
   }
 

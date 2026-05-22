@@ -850,9 +850,9 @@ function renderArticles() {
   const container = document.getElementById('articles-container');
 
   // Update stats
-  document.getElementById('stat-posts').textContent = (128 + userPosts.length) + '+';
+  document.getElementById('stat-posts').textContent = userPosts.length > 0 ? userPosts.length + '+' : '0';
   const subs = getSubs();
-  document.getElementById('stat-subs').textContent = (subs.length + 2418).toLocaleString();
+  document.getElementById('stat-subs').textContent = subs.filter(s=>s.isReal).length.toLocaleString();
 
   // Update hero with latest post
   if (userPosts.length > 0) {

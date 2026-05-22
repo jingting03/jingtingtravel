@@ -671,6 +671,7 @@ input,textarea,select{font-family:var(--sans);color:var(--thi)}
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBxxIQoVdXRUxOSBpSAlgp7FH2hdib7ZFE",
@@ -682,9 +683,10 @@ const firebaseConfig = {
   measurementId: "G-SJPJEVDZV6"
 };
 
-const app  = initializeApp(firebaseConfig);
-const db   = getFirestore(app);
-const auth = getAuth(app);
+const app     = initializeApp(firebaseConfig);
+const db      = getFirestore(app);
+const auth    = getAuth(app);
+const storage = getStorage(app);
 
 // ── Collection refs ──
 const COLS = {
@@ -702,9 +704,10 @@ let _posts=[], _subs=[], _places=[], _collab=[], _settings={}, _media=[];
 // ── Real-time listeners ──
 function startListeners(){
   onSnapshot(query(collection(db,COLS.POSTS),   orderBy('createdAt','desc')), s=>{ _posts  =s.docs.map(d=>({id:d.id,...d.data()})); refreshDash(); renderPosts(); });
-  onSnapshot(query(collection(db,COLS.SUBS),    orderBy('createdAt','desc')), s=>{ _subs   =s.docs.map(d=>({id:d.id,...d.data()})); renderSubs(); });
+  onSnapshot(query(collection(db,COLS.SUBS),    orderBy('createdAt','desc')), s=>{ _subs   =s.docs.map(d=>({id:d.id,...d.data()})); renderSubs(); refreshDash(); });
   onSnapshot(query(collection(db,COLS.PLACES),  orderBy('createdAt','desc')), s=>{ _places =s.docs.map(d=>({id:d.id,...d.data()})); renderPlaces(); });
   onSnapshot(query(collection(db,COLS.COLLAB),  orderBy('createdAt','desc')), s=>{ _collab =s.docs.map(d=>({id:d.id,...d.data()})); renderCollab(); });
+  onSnapshot(query(collection(db,COLS.MEDIA),   orderBy('createdAt','desc')), s=>{ _media  =s.docs.map(d=>({id:d.id,...d.data(),sel:false})); renderMedia(); });
   onSnapshot(doc(db,COLS.SETTINGS,'config'),                                  s=>{ if(s.exists())_settings=s.data(); loadSettings(); });
 }
 
@@ -846,20 +849,20 @@ function initAdmin(){refreshDash();renderPosts();renderSubs();renderPlaces();ren
 function refreshDash(){
   const posts=getPosts();const subs=getSubs();const places=getPlaces();
   const pub=posts.filter(p=>p.status==='published');
-  const tp=128+pub.length;const ts=2418+subs.length;const tpl=places.length;
-  document.getElementById('d-posts').textContent=tp;
+  const tp=pub.length;const ts=subs.filter(s=>s.isReal).length;const tpl=places.length;
+  document.getElementById('d-posts').textContent=tp||0;
   document.getElementById('d-subs').textContent=ts.toLocaleString();
   document.getElementById('d-places').textContent=tpl;
   document.getElementById('dc-p').textContent=`↑ +${pub.length} 本月`;
-  document.getElementById('dc-s').textContent=`↑ +${subs.length} 本月`;
+  document.getElementById('dc-s').textContent=`↑ +${subs.filter(s=>s.isReal).length} 本月`;
   document.getElementById('dc-pl').textContent=`↑ +${Math.max(0,tpl-4)}`;
-  document.getElementById('sb-posts').textContent=tp;
+  document.getElementById('sb-posts').textContent=tp||0;
   document.getElementById('sb-subs').textContent=ts;
   const newCollab=getCollab().filter(c=>c.status==='new').length;
   document.getElementById('sb-collab').textContent=newCollab||'';
   document.getElementById('ndot').textContent=newCollab||'';
 
-  const all=[...pub,...demoPosts()].slice(0,5);
+  const all=pub.slice(0,5);
   document.getElementById('d-recent').innerHTML=all.length
     ?all.map(p=>`<tr>
       <td><div class="tcell"><div class="tem">${p.emoji||'📝'}</div><div><div class="ct">${p.title}</div><div class="cm">${p.category||''}</div></div></div></td>
@@ -874,12 +877,12 @@ function refreshDash(){
 /* ═══ POSTS ═══ */
 let pf={q:'',status:'',cat:''};
 function renderPosts(){
-  const user=getPosts();const demo=demoPosts();
-  let all=[...user.map(p=>({...p})),...demo];
+  const user=getPosts();
+  let all=[...user.map(p=>({...p}))];
   if(pf.q)all=all.filter(p=>p.title.toLowerCase().includes(pf.q.toLowerCase()));
   if(pf.status)all=all.filter(p=>p.status===pf.status);
   if(pf.cat)all=all.filter(p=>(p.category||'')===pf.cat);
-  const total=(128-3)+user.length+3;
+  const total=user.length;
   document.getElementById('posts-cnt').textContent=`共 ${total} 篇`;
   document.getElementById('posts-ft').textContent=`顯示 ${all.length} 筆`;
   document.getElementById('posts-tb').innerHTML=all.length
@@ -957,13 +960,27 @@ async function _savePost(status){
   const cat=document.getElementById('e-cat').value;
   const city=document.getElementById('e-city').value;
   const EMOJIS={'旅遊攻略':'🗺️','美食推薦':'🍽️','住宿體驗':'🏨','行程規劃':'📅','生活記錄':'📖'};
+
+  // Upload cover to Firebase Storage if a new file was selected
+  let cover=document.getElementById('pvimg').src||'';
+  if(_pendingCoverFile){
+    try{
+      toast('圖片上傳中…','⏳');
+      const ext=_pendingCoverFile.name.split('.').pop();
+      const sRef=storageRef(storage,`covers/${Date.now()}.${ext}`);
+      const snap=await uploadBytes(sRef,_pendingCoverFile);
+      cover=await getDownloadURL(snap.ref);
+      _pendingCoverFile=null;
+    }catch(e){ toast('圖片上傳失敗：'+e.message,'❌');return; }
+  }
+
   const p={
     title,content,category:cat,city,
     tags:document.getElementById('e-tags').value,
     seoTitle:document.getElementById('e-seo-t').value,
     seoDesc:document.getElementById('e-seo-d').value,
     slug:document.getElementById('e-slug').value||title.toLowerCase().replace(/\s+/g,'-').replace(/[^\w-]/g,'').slice(0,40),
-    cover:document.getElementById('pvimg').src||'',
+    cover,
     emoji:EMOJIS[cat]||'📝',
     bg:'linear-gradient(145deg,#1A1410,#2A1E18)',
     excerpt:(content.replace(/[#*>\-\n]/g,' ').trim().substring(0,100)||title)+'…',
@@ -973,7 +990,6 @@ async function _savePost(status){
   try{
     if(editId){ await setPost(editId,p); }
     else { await addPost(p); }
-    // listeners will auto-refresh UI
   }catch(e){ toast('儲存失敗：'+e.message,'❌'); }
 }
 function delEditPost(){
@@ -1051,8 +1067,9 @@ function updateSEO(){
 }
 function fmt(b,a){const ta=document.getElementById('e-content');const s=ta.selectionStart,e=ta.selectionEnd;const sel=ta.value.substring(s,e);ta.value=ta.value.substring(0,s)+b+sel+a+ta.value.substring(e);ta.focus();ta.selectionStart=s+b.length;ta.selectionEnd=s+b.length+sel.length;updateWC();}
 function insTable(){const ta=document.getElementById('e-content');const tbl='\n| 欄位一 | 欄位二 | 欄位三 |\n|---|---|---|\n| 內容 | 內容 | 內容 |\n';const s=ta.selectionStart;ta.value=ta.value.substring(0,s)+tbl+ta.value.substring(s);ta.focus();updateWC();}
-function previewImg(e){const file=e.target.files[0];if(!file)return;if(file.size>5*1024*1024){toast('圖片不能超過 5MB','⚠️');return;}const r=new FileReader();r.onload=ev=>{document.getElementById('pvimg').src=ev.target.result;document.getElementById('pvwrap').style.display='block';document.getElementById('upzone').style.display='none';};r.readAsDataURL(file);}
-function rmPreview(){document.getElementById('pvwrap').style.display='none';document.getElementById('upzone').style.display='block';const el=document.getElementById('imgup');if(el)el.value='';document.getElementById('pvimg').src='';}
+let _pendingCoverFile=null;
+function previewImg(e){const file=e.target.files[0];if(!file)return;if(file.size>5*1024*1024){toast('圖片不能超過 5MB','⚠️');return;}_pendingCoverFile=file;const r=new FileReader();r.onload=ev=>{document.getElementById('pvimg').src=ev.target.result;document.getElementById('pvwrap').style.display='block';document.getElementById('upzone').style.display='none';};r.readAsDataURL(file);}
+function rmPreview(){document.getElementById('pvwrap').style.display='none';document.getElementById('upzone').style.display='block';const el=document.getElementById('imgup');if(el)el.value='';document.getElementById('pvimg').src='';_pendingCoverFile=null;}
 
 /* ═══ MEDIA ═══ */
 let mf='';
@@ -1064,14 +1081,27 @@ function renderMedia(){
   grid.innerHTML=fil.map(m=>`<div class="mitem ${m.sel?'sel':''}" onclick="toggleMediaSel('${m.id}')"><div class="mchk">✓</div><div class="mthumb"><img src="${m.src}" alt="${m.name}" onerror="this.parentElement.innerHTML='🖼'"></div><div class="minfo"><div class="mname">${m.name}</div><div class="msize">${m.size}</div></div></div>`).join('');
 }
 function filterMedia(q){mf=q;renderMedia();}
-function toggleMediaSel(id){const media=getMedia();const m=media.find(x=>x.id===id);if(m){m.sel=!m.sel;store(DB.MEDIA,media);}const selCount=getMedia().filter(m=>m.sel).length;document.getElementById('del-media-btn').style.display=selCount?'inline-flex':'none';renderMedia();}
-function uploadMedia(e){
-  const files=Array.from(e.target.files);const media=getMedia();let c=0;
-  files.forEach(f=>{if(!f.type.startsWith('image/'))return;if(f.size>5*1024*1024){toast(`${f.name} 超過 5MB，略過`,'⚠️');return;}
-  const r=new FileReader();r.onload=ev=>{media.unshift({id:'m'+Date.now()+(c++),name:f.name,src:ev.target.result,size:fmtSize(f.size),sel:false});store(DB.MEDIA,media);renderMedia();};r.readAsDataURL(f);});
-  toast(`上傳 ${files.length} 張圖片`,'⬆');e.target.value='';
+function toggleMediaSel(id){const m=_media.find(x=>x.id===id);if(m)m.sel=!m.sel;const selCount=_media.filter(m=>m.sel).length;document.getElementById('del-media-btn').style.display=selCount?'inline-flex':'none';renderMedia();}
+async function uploadMedia(e){
+  const files=Array.from(e.target.files).filter(f=>f.type.startsWith('image/'));
+  if(!files.length)return;
+  toast(`上傳 ${files.length} 張圖片中…`,'⏳');
+  let ok=0;
+  for(const f of files){
+    if(f.size>5*1024*1024){toast(`${f.name} 超過 5MB，略過`,'⚠️');continue;}
+    try{
+      const ext=f.name.split('.').pop();
+      const sRef=storageRef(storage,`media/${Date.now()}_${f.name}`);
+      const snap=await uploadBytes(sRef,f);
+      const url=await getDownloadURL(snap.ref);
+      await addDoc(collection(db,COLS.MEDIA),{name:f.name,src:url,size:fmtSize(f.size),sel:false,createdAt:serverTimestamp()});
+      ok++;
+    }catch(err){toast(`${f.name} 上傳失敗`,'❌');}
+  }
+  if(ok>0)toast(`${ok} 張圖片上傳完成 ✓`,'✅');
+  e.target.value='';
 }
-function delSelectedMedia(){const sel=getMedia().filter(m=>m.sel);if(!sel.length)return;confirm2('🗑','刪除選取圖片',`確定要刪除 ${sel.length} 張圖片嗎？`,()=>{store(DB.MEDIA,getMedia().filter(m=>!m.sel));document.getElementById('del-media-btn').style.display='none';toast(`已刪除 ${sel.length} 張圖片`,'🗑');renderMedia();});}
+function delSelectedMedia(){const sel=_media.filter(m=>m.sel);if(!sel.length)return;confirm2('🗑','刪除選取圖片',`確定要刪除 ${sel.length} 張圖片嗎？`,async()=>{await Promise.all(sel.map(m=>deleteDoc(doc(db,COLS.MEDIA,m.id))));document.getElementById('del-media-btn').style.display='none';toast(`已刪除 ${sel.length} 張圖片`,'🗑');});}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(0)+' KB';return(b/1048576).toFixed(1)+' MB';}
 
 /* ═══ PLACES ═══ */
@@ -1134,7 +1164,7 @@ function renderSubs(){
     :'<tr><td colspan="5"><div class="empty"><div class="empty-ic">💌</div><div class="empty-d">沒有找到訂閱者</div></div></td></tr>';
 }
 function filterSubs(q){sf=q;renderSubs();}
-function unsub(email){confirm2('❌','取消訂閱',`確定移除 ${email} 的訂閱？`,()=>{store(DB.SUBS,getSubs().filter(s=>s.email!==email));renderSubs();refreshDash();toast(`已取消 ${email} 的訂閱`,'❌');});}
+function unsub(email){const s=getSubs().find(x=>x.email===email);if(!s)return;confirm2('❌','取消訂閱',`確定移除 ${email} 的訂閱？`,async()=>{await delSub(s.id);toast(`已取消 ${email} 的訂閱`,'❌');});}
 function openSend(){document.getElementById('send-panel').style.display='block';}
 function closeSend(){document.getElementById('send-panel').style.display='none';}
 function previewNL(){const s=document.getElementById('nl-subj').value;if(!s){toast('請輸入週報主題','⚠️');return;}toast(`預覽「${s}」已送到你的信箱`,'👀');}

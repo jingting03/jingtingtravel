@@ -377,7 +377,7 @@ input,textarea,select{font-family:var(--sans);color:var(--thi)}
         <div class="sgrid">
           <div class="sc"><div class="sc-top"><div class="sc-ic" style="background:var(--amberd)">📝</div><span class="sch up" id="dc-p">↑ +0 本月</span></div><div class="sc-num" id="d-posts">—</div><div class="sc-lbl">已發布文章</div></div>
           <div class="sc"><div class="sc-top"><div class="sc-ic" style="background:var(--saged)">💌</div><span class="sch up" id="dc-s">↑ +0 本月</span></div><div class="sc-num" id="d-subs">—</div><div class="sc-lbl">訂閱者</div></div>
-          <div class="sc"><div class="sc-top"><div class="sc-ic" style="background:var(--blued)">👀</div><span class="sch up">↑ +18%</span></div><div class="sc-num">14.2k</div><div class="sc-lbl">本月瀏覽量</div></div>
+          <div class="sc"><div class="sc-top"><div class="sc-ic" style="background:var(--blued)">👀</div><span class="sch up" id="dc-v">—</span></div><div class="sc-num" id="d-views">—</div><div class="sc-lbl">本月瀏覽量</div></div>
           <div class="sc"><div class="sc-top"><div class="sc-ic" style="background:var(--rosed)">📍</div><span class="sch up" id="dc-pl">↑ +0</span></div><div class="sc-num" id="d-places">—</div><div class="sc-lbl">地點資料庫</div></div>
         </div>
         <div class="crow">
@@ -610,13 +610,13 @@ input,textarea,select{font-family:var(--sans);color:var(--thi)}
           <div class="stcard" style="grid-column:1/-1">
             <div class="stcard-t">🤖 AI 助理設定</div>
             <div style="padding:.85rem 1rem;background:var(--amberd);border:1px solid var(--amberb);border-radius:8px;font-size:.82rem;color:var(--thi);margin-bottom:1rem;line-height:1.7">
-              <strong>如何取得 Claude API Key：</strong><br>
-              1. 前往 <a href="https://console.anthropic.com" target="_blank" style="color:var(--sagel)">console.anthropic.com</a> 註冊帳號<br>
-              2. 點擊左側「API Keys」→「Create Key」<br>
-              3. 複製 API Key（以 <code style="background:var(--ink4);padding:1px 5px;border-radius:3px">sk-ant-</code> 開頭）貼到下方<br>
-              4. 儲存設定後，前台 AI 助理就會變成真實的 Claude AI
+              <strong>如何取得 Gemini API Key：</strong><br>
+              1. 前往 <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--sagel)">Google AI Studio</a> 登入 Google 帳號<br>
+              2. 點擊「Create API Key」<br>
+              3. 複製 API Key（以 <code style="background:var(--ink4);padding:1px 5px;border-radius:3px">AIza</code> 開頭）貼到下方<br>
+              4. 點「測試連線」確認後，前台 AI 助理就會使用 Gemini
             </div>
-            <div class="fg2"><label class="fl2">Anthropic API Key</label><input type="password" class="fi2" id="set-apikey" placeholder="sk-ant-api03-..."><div style="font-size:.72rem;color:var(--tlow);margin-top:4px">⚠️ Key 儲存在你的瀏覽器，不會上傳到任何伺服器</div></div>
+            <div class="fg2"><label class="fl2">Gemini API Key</label><input type="password" class="fi2" id="set-apikey" placeholder="AIzaSy..."><div style="font-size:.72rem;color:var(--tlow);margin-top:4px">⚠️ Key 儲存在你的瀏覽器，不會上傳到任何伺服器</div></div>
             <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.5rem">
               <button class="btn bn bsm" onclick="testApiKey()">🧪 測試連線</button>
               <button class="btn bg bsm" onclick="clearApiKey()">🗑 清除 Key</button>
@@ -1213,18 +1213,17 @@ async function testApiKey(){
   if(!key){res.style.display='block';res.style.background='var(--rosed)';res.textContent='請先輸入 API Key';return;}
   res.style.display='block';res.style.background='var(--amberd)';res.textContent='⏳ 測試中…';
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:50,messages:[{role:'user',content:'回覆「連線成功」三個字'}]})
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{role:'user',parts:[{text:'回覆「連線成功」三個字'}]}],generationConfig:{maxOutputTokens:20}})
     });
     const d=await r.json();
-    if(d.content&&d.content[0]){
+    if(d.candidates&&d.candidates[0]){
       res.style.background='var(--saged)';res.style.color='var(--sagel)';
-      res.textContent='✅ 連線成功！AI 助理已啟用，前台的 AI 回答將使用真實的 Claude。';
-      // save to localStorage
+      res.textContent='✅ 連線成功！Gemini AI 助理已啟用，前台 AI 功能已開通。';
       localStorage.setItem('jt_api_key', key);
-      toast('API Key 已驗證並儲存 ✓','🤖');
+      toast('Gemini API Key 已驗證並儲存 ✓','🤖');
     }else{
       res.style.background='var(--rosed)';res.style.color='var(--rosel)';
       res.textContent='❌ 連線失敗：'+(d.error?.message||'請確認 Key 是否正確');
@@ -1249,10 +1248,10 @@ async function testMailchimp(){
 
 /* ═══ CHARTS ═══ */
 function initCharts(){
-  const vals=[320,480,390,620,780,540,460,880,720,940,680,820,1100,760,580,920,1040,860,640,980,1200,740,560,880,1020,670,810,950,700,1080];
-  const max=Math.max(...vals);const el=document.getElementById('daily-chart');if(!el)return;
-  el.innerHTML=vals.map((v,i)=>`<div class="mwrp"><div class="mbar" style="height:${Math.round(v/max*72)}px;background:${v===max?'var(--amber)':'var(--amberd)'}"></div>${i%5===0?`<div class="mlbl">${i+1}日</div>`:'<div class="mlbl"></div>'}</div>`).join('');
-  const posts=getPosts();const cats={旅遊攻略:52,美食推薦:38,住宿體驗:22,行程規劃:16};
+  const days=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
+  const el=document.getElementById('daily-chart');if(!el)return;
+  el.innerHTML=Array(days).fill(0).map((_,i)=>`<div class="mwrp"><div class="mbar" style="height:4px;background:var(--amberd)"></div>${i%5===0?`<div class="mlbl">${i+1}日</div>`:'<div class="mlbl"></div>'}</div>`).join('');
+  const posts=getPosts();const cats={旅遊攻略:0,美食推薦:0,住宿體驗:0,行程規劃:0};
   posts.forEach(p=>{if(cats[p.category]!==undefined)cats[p.category]++;});
   const mx=Math.max(...Object.values(cats),1);const cols=['var(--amber)','var(--sage)','var(--blue)','var(--rosel)'];
   const cel=document.getElementById('cat-chart');if(!cel)return;

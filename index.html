@@ -995,10 +995,11 @@ async function generateItinerary() {
     const budgetLabel={low:'小資省錢',mid:'一般舒適',high:'高品質享受'}[bl];
     const prompt=`幫我規劃${destNames[dest]} ${days} 天旅遊行程。\n旅伴：${compMap[comp]}\n預算：${budgetLabel}（約 NT$${budget.toLocaleString()}/人）\n偏好：${prefs}\n\n請用 Day 1 / Day 2 格式，每天列 4–6 個景點或餐廳，附時間與一句說明。繁體中文。`;
     try{
-      const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,system:'你是「旅食日記 JING TING」旅遊部落格的行程規劃助理，擅長台灣與亞洲旅遊，提供真實、具體、實用的行程建議。',messages:[{role:'user',content:prompt}]})});
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:'你是「旅食日記 JING TING」旅遊部落格的行程規劃助理，擅長台灣與亞洲旅遊，提供真實、具體、實用的行程建議。'}]},contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:1500}})});
       const d=await r.json();
-      if(d.content&&d.content[0]){
-        const txt=d.content[0].text
+      const aiText=d.candidates?.[0]?.content?.parts?.[0]?.text;
+      if(aiText){
+        const txt=aiText
           .replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--t-hi)">$1</strong>')
           .replace(/^(Day \d+.*?)$/gm,'<div class="day-lbl" style="margin-top:1.5rem;font-size:.8rem">$1</div>')
           .replace(/\n/g,'<br>');
@@ -1094,19 +1095,21 @@ async function sendMsg(){
   if(!apiKey){setTimeout(()=>{document.getElementById('typ')?.remove();addMsg(getFallback(q),false);},800+Math.random()*400);return;}
   try{
     const history=chatHistory.filter(m=>m.role==='user'||m.role==='assistant').slice(-10);
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
+    const contents=history.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));
+    if(!contents.length||contents[contents.length-1].role!=='user')contents.push({role:'user',parts:[{text:q}]});
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',max_tokens:600,
-        system:'你是「旅食日記 JING TING」旅遊部落格的 AI 助理。專門回答台灣、日本、韓國、泰國等地的旅遊、美食、行程規劃問題。回答要具體實用，使用繁體中文，可以用 **粗體** 標記重點，換行分段。回答控制在 300 字以內，如果是行程建議請用 Day 1/Day 2 格式。',
-        messages:[...history.slice(0,-1),{role:'user',content:q}]
+        systemInstruction:{parts:[{text:'你是「旅食日記 JING TING」旅遊部落格的 AI 助理。專門回答台灣、日本、韓國、泰國等地的旅遊、美食、行程規劃問題。回答要具體實用，使用繁體中文，可以用 **粗體** 標記重點，換行分段。回答控制在 300 字以內，如果是行程建議請用 Day 1/Day 2 格式。'}]},
+        contents,
+        generationConfig:{maxOutputTokens:600}
       })
     });
     const d=await r.json();
     document.getElementById('typ')?.remove();
-    if(d.content&&d.content[0]){addMsg(d.content[0].text,false);}
-    else throw new Error('no content');
+    const text=d.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(text){addMsg(text,false);}else throw new Error('no content');
   }catch(e){document.getElementById('typ')?.remove();addMsg(getFallback(q),false);}
 }
 function askQuick(q){document.getElementById('chat-input').value=q;sendMsg();}

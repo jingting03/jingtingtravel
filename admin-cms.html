@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>旅食日記 — 後台管理</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✈️</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;1,400&family=DM+Sans:wght@300;400;500;600&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -541,9 +542,9 @@ input,textarea,select{font-family:var(--sans);color:var(--thi)}
         <div class="ph"><div><div class="pt">訂閱者管理</div><div class="ps">管理所有訂閱旅食週報的讀者</div></div>
         <div class="pa"><button class="btn bs" onclick="exportSubs()">⬇ 匯出 CSV</button><button class="btn bn" onclick="openSend()">✉ 發送週報</button></div></div>
         <div class="ssum">
-          <div class="scard"><div class="scard-n" id="sub-total">2,418</div><div class="scard-l">總訂閱人數</div><div class="scard-bar"><div class="scard-f" style="width:82%;background:var(--amber)"></div></div></div>
+          <div class="scard"><div class="scard-n" id="sub-total">0</div><div class="scard-l">總訂閱人數</div><div class="scard-bar"><div class="scard-f" id="sub-total-bar" style="width:0%;background:var(--amber)"></div></div></div>
           <div class="scard"><div class="scard-n" id="sub-new">+0</div><div class="scard-l">本月新增（來自前台）</div><div class="scard-bar"><div class="scard-f" id="sub-new-bar" style="width:0%;background:var(--sage)"></div></div></div>
-          <div class="scard"><div class="scard-n">68%</div><div class="scard-l">週報開信率</div><div class="scard-bar"><div class="scard-f" style="width:68%;background:var(--blue)"></div></div></div>
+          <div class="scard"><div class="scard-n">—</div><div class="scard-l">週報開信率</div><div class="scard-bar"><div class="scard-f" style="width:0%;background:var(--blue)"></div></div></div>
         </div>
         <div class="spanel" id="send-panel" style="display:none">
           <div class="sp-ttl">✉ 撰寫並發送週報</div>
@@ -1141,19 +1142,14 @@ async function savePlace(){
 /* ═══ SUBSCRIBERS ═══ */
 let sf='';
 function renderSubs(){
-  const real=getSubs();const total=2418+real.length;
+  const real=getSubs();const total=real.length;
   document.getElementById('sub-total').textContent=total.toLocaleString();
   document.getElementById('sub-new').textContent='+'+real.length;
   document.getElementById('sub-new-bar').style.width=Math.min(real.length*5,100)+'%';
   document.getElementById('subs-cnt').textContent=`共 ${total} 位`;
   document.getElementById('sb-subs').textContent=total;
-  const demo=[
-    {email:'alice@example.com',name:'Alice',date:'2026.04.01',src:'前台訂閱'},
-    {email:'bob.travel@gmail.com',name:'Bob',date:'2026.03.22',src:'前台訂閱'},
-    {email:'yuki123@mail.com',name:'Yuki',date:'2026.02.08',src:'前台訂閱'},
-  ].filter(d=>!real.find(s=>s.email===d.email));
   const fil=sf?real.filter(s=>s.email.includes(sf)||(s.name||'').includes(sf)):real;
-  const all=[...fil.map(s=>({...s,isReal:true})),...demo];
+  const all=fil.map(s=>({...s,isReal:true}));
   document.getElementById('subs-tb').innerHTML=all.length
     ?all.map(s=>`<tr>
       <td style="color:var(--thi)">${s.email} ${s.isReal?'<span class="spl snw" style="font-size:.62rem">新</span>':''}</td>
@@ -1168,7 +1164,7 @@ function unsub(email){const s=getSubs().find(x=>x.email===email);if(!s)return;co
 function openSend(){document.getElementById('send-panel').style.display='block';}
 function closeSend(){document.getElementById('send-panel').style.display='none';}
 function previewNL(){const s=document.getElementById('nl-subj').value;if(!s){toast('請輸入週報主題','⚠️');return;}toast(`預覽「${s}」已送到你的信箱`,'👀');}
-function sendNL(){const s=document.getElementById('nl-subj').value;const c=document.getElementById('nl-content').value;if(!s||!c){toast('請填寫主題和內容','⚠️');return;}toast(`「${s}」已排程發送給 ${(2418+getSubs().length).toLocaleString()} 位訂閱者`,'✉');document.getElementById('nl-subj').value='';document.getElementById('nl-content').value='';closeSend();}
+function sendNL(){const s=document.getElementById('nl-subj').value;const c=document.getElementById('nl-content').value;if(!s||!c){toast('請填寫主題和內容','⚠️');return;}toast(`「${s}」已排程發送給 ${getSubs().length.toLocaleString()} 位訂閱者`,'✉');document.getElementById('nl-subj').value='';document.getElementById('nl-content').value='';closeSend();}
 function exportSubs(){const subs=getSubs();if(!subs.length){toast('沒有新的訂閱者可匯出','ℹ️');return;}const csv=['Email,姓名,訂閱日期',...subs.map(s=>`${s.email},${s.name||''},${s.date||''}`)].join('\n');dlFile(csv,'subscribers.csv','text/csv');toast('訂閱者名單已匯出','⬇');}
 
 /* ═══ COLLAB ═══ */

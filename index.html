@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>旅食日記 JING TING</title>
 <meta name="description" content="分享旅途中的風景、美食與生活靈感，旅遊景點、餐廳推薦、行程規劃一站整理。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✈️</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Noto+Serif+TC:wght@400;600&family=DM+Sans:wght@300;400;500&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -441,7 +442,7 @@ footer{background:var(--ink);border-top:1px solid var(--bd);padding:3.5rem 0 2re
       <div class="hero-meta">
         <div class="hero-stat"><div class="num" id="stat-posts">—</div><div class="lbl">篇旅遊文章</div></div>
         <div class="hero-stat"><div class="num" id="stat-subs">—</div><div class="lbl">位訂閱者</div></div>
-        <div class="hero-stat"><div class="num" id="stat-places">340+</div><div class="lbl">個推薦地點</div></div>
+        <div class="hero-stat"><div class="num" id="stat-places">—</div><div class="lbl">個推薦地點</div></div>
       </div>
     </div>
     <div class="hero-visual">
@@ -700,7 +701,7 @@ footer{background:var(--ink);border-top:1px solid var(--bd);padding:3.5rem 0 2re
       <h2>嗨，我是靜婷</h2>
       <p>喜歡旅行、美食、拍照與記錄生活。<br>這裡分享我旅途中遇見的風景、餐廳、住宿與實用行程，<br>希望幫你找到下一次出發的靈感，少走一點彎路，多一點期待。</p>
       <div class="social-row">
-        <a href="#" class="social-btn">📸 Instagram</a>
+        <a href="https://www.instagram.com/jingtingtravel" target="_blank" rel="noopener" class="social-btn">📸 Instagram</a>
         <a href="#" class="social-btn">🎬 YouTube</a>
         <a href="#" class="social-btn">📌 Pinterest</a>
       </div>
@@ -908,10 +909,11 @@ function renderArticles() {
 
 /* ══ SUBSCRIBE ══ */
 function updateSubCount() {
-  const count = getSubs().length + 2418;
-  document.getElementById('sub-count-display').textContent = `已有 ${count.toLocaleString()} 位訂閱者 · 隨時可取消`;
+  const count = getSubs().filter(s=>s.isReal).length;
+  const txt = count > 0 ? `已有 ${count.toLocaleString()} 位訂閱者 · 隨時可取消` : '免費訂閱 · 隨時可取消';
+  document.getElementById('sub-count-display').textContent = txt;
   const el = document.getElementById('sub-count-modal');
-  if (el) el.textContent = `已有 ${count.toLocaleString()} 位訂閱者 · 隨時可取消`;
+  if (el) el.textContent = txt;
 }
 function openModal() {
   document.getElementById('sub-form').style.display = 'flex';
@@ -1122,6 +1124,10 @@ document.addEventListener('DOMContentLoaded', () => {
   filterDB();
   calcBudget();
   renderPins();
+  getDocs(collection(_db,'places')).then(s=>{
+    const n=s.size;
+    document.getElementById('stat-places').textContent=n>0?n:'—';
+  }).catch(()=>{});
   setTimeout(() => addMsg('嗨！我是旅食 AI 助理 🧳\n\n問我任何旅遊問題，我根據旅食日記的文章庫來回答！', false), 400);
 });
 

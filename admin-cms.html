@@ -28,7 +28,7 @@ input,textarea,select{font-family:var(--sans);color:var(--thi)}
 #admin{display:none;flex-direction:column;min-height:100vh}#admin.active{display:flex}
 
 /* LOGIN */
-#login{min-height:100vh;display:grid;grid-template-columns:1fr 1fr}
+#login{display:none;min-height:100vh;grid-template-columns:1fr 1fr}#login.active{display:grid}
 .ll{background:var(--ink2);display:flex;flex-direction:column;justify-content:center;padding:4rem;position:relative;overflow:hidden}
 .ll::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 30% 60%,rgba(200,137,58,.12),transparent 60%)}
 .ll-brand{position:relative;z-index:1;margin-bottom:3rem}
@@ -1263,6 +1263,20 @@ function confirmDel(id,type,after){
 }
 
 function dlFile(content,filename,mime){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:mime}));a.download=filename;a.click();URL.revokeObjectURL(a.href);}
+
+// Expose functions to global scope (required for inline onclick handlers in module scripts)
+Object.assign(window,{
+  doLogin,doLogout,goP,
+  exportPosts,saveDraft,publishPost,delEditPost,
+  setEdMode,fmt,insTable,rmPreview,updateWC,renderMdPreview,updateSEO,previewImg,
+  editPost,confirmDel,closeConfirm,
+  delSelectedMedia,uploadMedia,filterMedia,toggleMediaSel,
+  openPlaceForm,closePlaceForm,savePlace,editPlace,filterPlaces,filterPlacesByType,
+  exportSubs,openSend,closeSend,previewNL,sendNL,filterSubs,unsub,
+  updateCollab,
+  saveSettings,changePW,testApiKey,clearApiKey,testMailchimp,
+  globalSearch,filterPosts,filterPostsByStatus,filterPostsByCat,
+});
 </script>
 </body>
 </html>

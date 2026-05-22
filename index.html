@@ -845,8 +845,8 @@ const DEFAULT_POSTS = [
 ];
 
 function renderArticles() {
-  const userPosts = getPosts().filter(p => p.status === 'published');
-  const allPosts = [...userPosts, ...DEFAULT_POSTS];
+  const userPosts = getPosts().filter(p => p.status === 'published' && !p.isDemo);
+  const allPosts = userPosts.length > 0 ? userPosts : DEFAULT_POSTS;
   const container = document.getElementById('articles-container');
 
   // Update stats
@@ -978,13 +978,39 @@ const ITIN = {
   kyoto:{name:'京都',emoji:'⛩️',days:{1:[{t:'07:30',e:'⛩️',n:'伏見稻荷',d:'千本鳥居'},{t:'11:00',e:'🥢',n:'錦市場',d:'京都廚房'},{t:'15:00',e:'🌸',n:'祇園四条',d:'傳統町家'}],2:[{t:'08:00',e:'🌙',n:'嵐山竹林',d:'清晨最美'},{t:'15:00',e:'⛩️',n:'金閣寺',d:'世界遺產'}]}},
   seoul:{name:'首爾',emoji:'🎭',days:{1:[{t:'09:00',e:'☕',n:'익선동咖啡',d:'韓屋改建'},{t:'11:00',e:'🏛️',n:'景福宮',d:'穿韓服'},{t:'18:00',e:'🌃',n:'弘大夜生活',d:'街頭表演'}],2:[{t:'11:00',e:'🍖',n:'廣藏市場',d:'在地小吃'},{t:'17:00',e:'☕',n:'聖水洞咖啡',d:'最新潮街區'}]}}
 };
-function generateItinerary() {
+async function generateItinerary() {
   const dest=document.getElementById('dest').value,days=parseInt(document.getElementById('days').value);
   const data=ITIN[dest],blMap={low:800,mid:1500,high:3000},fMul=['kyoto','seoul'].includes(dest)?4:1;
   const bl=document.getElementById('budget-level').value,comp=document.getElementById('companion').value;
   const compMap={solo:'獨行俠',couple:'情侶',friends:'朋友',family:'親子'};
+  const destNames={tainan:'台南',taipei:'台北',hualien:'花蓮',kyoto:'京都',seoul:'首爾'};
   const budget=blMap[bl]*fMul*days;
   document.getElementById('itin-sum').innerHTML=`<div class="itin-sum-item"><div class="itin-sum-val">${data.emoji} ${data.name}</div><div class="itin-sum-key">目的地</div></div><div class="itin-sum-item"><div class="itin-sum-val">${days} 天</div><div class="itin-sum-key">天數</div></div><div class="itin-sum-item"><div class="itin-sum-val">${compMap[comp]}</div><div class="itin-sum-key">旅伴</div></div><div class="itin-sum-item"><div class="itin-sum-val">NT$${budget.toLocaleString()}</div><div class="itin-sum-key">預估/人</div></div>`;
+  document.getElementById('itin-result').style.display='block';
+
+  const apiKey=localStorage.getItem('jt_api_key');
+  if(apiKey){
+    document.getElementById('itin-days').innerHTML=`<div style="text-align:center;padding:2.5rem;color:var(--t-mid)"><div style="font-size:1.8rem;margin-bottom:.75rem;animation:bl 1.2s infinite">✦</div><div>AI 正在為你量身規劃行程…</div></div>`;
+    const prefs=[...document.querySelectorAll('.t-chip.on')].map(c=>c.textContent.trim()).join('、')||'均衡';
+    const budgetLabel={low:'小資省錢',mid:'一般舒適',high:'高品質享受'}[bl];
+    const prompt=`幫我規劃${destNames[dest]} ${days} 天旅遊行程。\n旅伴：${compMap[comp]}\n預算：${budgetLabel}（約 NT$${budget.toLocaleString()}/人）\n偏好：${prefs}\n\n請用 Day 1 / Day 2 格式，每天列 4–6 個景點或餐廳，附時間與一句說明。繁體中文。`;
+    try{
+      const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,system:'你是「旅食日記 JING TING」旅遊部落格的行程規劃助理，擅長台灣與亞洲旅遊，提供真實、具體、實用的行程建議。',messages:[{role:'user',content:prompt}]})});
+      const d=await r.json();
+      if(d.content&&d.content[0]){
+        const txt=d.content[0].text
+          .replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--t-hi)">$1</strong>')
+          .replace(/^(Day \d+.*?)$/gm,'<div class="day-lbl" style="margin-top:1.5rem;font-size:.8rem">$1</div>')
+          .replace(/\n/g,'<br>');
+        document.getElementById('itin-days').innerHTML=`<div style="line-height:2;color:var(--t-mid);font-size:.88rem">${txt}</div>`;
+      }else throw new Error();
+    }catch(e){renderHardcodedItin(data,days);}
+  }else{
+    renderHardcodedItin(data,days);
+  }
+  document.getElementById('itin-result').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function renderHardcodedItin(data,days){
   let html='';
   for(let d=0;d<Math.min(days,Object.keys(data.days).length);d++){
     const stops=data.days[String(d+1)]||data.days['1'];
@@ -993,8 +1019,6 @@ function generateItinerary() {
     html+='</div>';
   }
   document.getElementById('itin-days').innerHTML=html;
-  document.getElementById('itin-result').style.display='block';
-  document.getElementById('itin-result').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 /* DB */
@@ -1096,6 +1120,19 @@ document.addEventListener('DOMContentLoaded', () => {
   calcBudget();
   renderPins();
   setTimeout(() => addMsg('嗨！我是旅食 AI 助理 🧳\n\n問我任何旅遊問題，我根據旅食日記的文章庫來回答！', false), 400);
+});
+
+// Expose to global scope for inline onclick handlers
+Object.assign(window,{
+  generateItinerary,renderHardcodedItin,
+  switchTool,
+  filterDB,toggleSave,
+  setCurrency,calcBudget,
+  handleMapClick,showPin,addPin,
+  sendMsg,askQuick,
+  openModal,closeModal,handleSubscribe,
+  showToast,
+  toggleMob,
 });
 </script>
 </body>
